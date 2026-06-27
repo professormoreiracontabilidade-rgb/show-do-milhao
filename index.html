@@ -1,37 +1,4 @@
-from pathlib import Path
-import re, json, zipfile, shutil
-
-src = Path("/mnt/data/Texto colado(283).txt")
-text = src.read_text(encoding="utf-8")
-m = re.search(r"const\s+QUIZZES\s*=\s*(\[\s*.*?\n\s*\]);", text, re.S)
-quizzes = json.loads(m.group(1))
-
-flat = []
-for quiz in quizzes:
-    for q in quiz:
-        alts = q.get("alternativas", [])
-        correta = next((i for i,a in enumerate(alts) if a.get("correta")), 0)
-        flat.append({
-            "id": "SM" + str(q.get("numero", len(flat)+1)).zfill(4),
-            "banca": q.get("banca", "FGV"),
-            "assunto": "CFC / Contabilidade",
-            "nivel": "Médio",
-            "enunciado": q.get("enunciado","").strip(),
-            "alternativas": [a.get("texto","").strip() for a in alts if a.get("texto","").strip()],
-            "correta": correta,
-            "comentario": q.get("comentario","").strip()
-        })
-
-out_dir = Path("/mnt/data/show_milhao_vermelho_cfc")
-out_dir.mkdir(exist_ok=True)
-img_src = Path("/mnt/data/CANAL MOREIRA(7).jpg")
-img_name = "professor_moreira.jpg"
-if img_src.exists():
-    shutil.copy(img_src, out_dir / img_name)
-
-questions = json.dumps(flat, ensure_ascii=False)
-
-html = r'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
