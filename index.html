@@ -78,16 +78,3 @@ function fim(tipo){tela("fim");if(tipo==="ganhou"){document.getElementById("titu
 function reiniciar(){tela("inicio")}
 </script>
 </body>
-</html>'''
-html = html.replace("__QUESTOES__", questions)
-
-html_path = out_dir / "index.html"
-html_path.write_text(html, encoding="utf-8")
-
-zip_path = Path("/mnt/data/show_milhao_cfc_estilo_vermelho.zip")
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-    z.write(html_path, "index.html")
-    if (out_dir / img_name).exists():
-        z.write(out_dir / img_name, img_name)
-
-print(zip_path)
