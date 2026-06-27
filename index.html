@@ -1,0 +1,126 @@
+from pathlib import Path
+import re, json, zipfile, shutil
+
+src = Path("/mnt/data/Texto colado(283).txt")
+text = src.read_text(encoding="utf-8")
+m = re.search(r"const\s+QUIZZES\s*=\s*(\[\s*.*?\n\s*\]);", text, re.S)
+quizzes = json.loads(m.group(1))
+
+flat = []
+for quiz in quizzes:
+    for q in quiz:
+        alts = q.get("alternativas", [])
+        correta = next((i for i,a in enumerate(alts) if a.get("correta")), 0)
+        flat.append({
+            "id": "SM" + str(q.get("numero", len(flat)+1)).zfill(4),
+            "banca": q.get("banca", "FGV"),
+            "assunto": "CFC / Contabilidade",
+            "nivel": "Médio",
+            "enunciado": q.get("enunciado","").strip(),
+            "alternativas": [a.get("texto","").strip() for a in alts if a.get("texto","").strip()],
+            "correta": correta,
+            "comentario": q.get("comentario","").strip()
+        })
+
+out_dir = Path("/mnt/data/show_milhao_vermelho_cfc")
+out_dir.mkdir(exist_ok=True)
+img_src = Path("/mnt/data/CANAL MOREIRA(7).jpg")
+img_name = "professor_moreira.jpg"
+if img_src.exists():
+    shutil.copy(img_src, out_dir / img_name)
+
+questions = json.dumps(flat, ensure_ascii=False)
+
+html = r'''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Show do Milhão CFC</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+body{min-height:100vh;background:radial-gradient(circle at 20% 0,#ff202055,transparent 33%),linear-gradient(135deg,#120003,#270006,#050014);font-family:Arial,Helvetica,sans-serif;color:white;overflow:hidden}
+.tela{display:none;min-height:100vh}.ativa{display:block}
+.bloco{background:linear-gradient(180deg,#d92316,#750000 55%,#220000);border:3px solid #ff3333;border-radius:18px;box-shadow:inset 0 2px 8px #fff5,inset 0 -10px 18px #0009,0 0 16px #ff000080}
+.inicio,.fim{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center}
+.caixa{max-width:720px;padding:28px}
+.titulo{font-size:52px;font-weight:900;color:#ffd400;text-shadow:3px 3px 0 #750000,0 0 20px red;margin-bottom:18px}
+.txt{font-size:22px;line-height:1.35;margin-bottom:22px}
+button{border:none;cursor:pointer}
+.botao{padding:20px 36px;font-size:26px;font-weight:900;color:white;text-shadow:2px 2px 3px #000}
+.app{display:grid;grid-template-columns:58% 42%;min-height:100vh}
+.esq{padding:14px;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.dir{position:relative;border-left:4px solid #ff2222;background:#080000;overflow:hidden}
+.foto{position:absolute;top:0;left:0;width:100%;height:45%;object-fit:cover;object-position:center top}
+.sombra{position:absolute;top:0;left:0;width:100%;height:48%;background:linear-gradient(180deg,transparent 55%,#060000)}
+.logo{text-align:center;font-size:42px;font-weight:900;color:#ffd400;text-shadow:3px 3px 0 #7a2300,0 0 20px red;transform:skew(-9deg);line-height:.9}
+.logo span{display:block;font-size:20px;color:white;text-shadow:2px 2px 0 #000}
+.meta{text-align:center;font-size:13px;color:#ffe28a;min-height:18px}
+.pergunta{padding:20px;min-height:130px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:25px;font-weight:900;line-height:1.18;text-transform:uppercase;text-shadow:2px 2px 3px #000}
+.alts{display:flex;flex-direction:column;gap:8px}
+.alt{position:relative;width:100%;min-height:62px;padding:10px 14px 10px 76px;text-align:left;font-size:21px;font-weight:800;color:white;text-shadow:2px 2px 3px #000}
+.alt:disabled{opacity:1}
+.num{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:radial-gradient(circle,#ff4040,#8a0000);border:3px solid #ffbaba;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:900}
+.correta{background:linear-gradient(180deg,#17a64a,#075c25)!important;border-color:#40ff7d!important}
+.errada{background:linear-gradient(180deg,#444,#111)!important;border-color:#888!important}
+.eliminada{opacity:.22!important;text-decoration:line-through}
+.ajudas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ajuda{height:78px;font-size:14px;font-weight:900;color:white;text-shadow:2px 2px 3px #000}
+.status{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:12px;text-align:center}
+.status div{border-right:2px solid #ff4444}.status div:last-child{border-right:none}
+.status small{display:block;color:#ffd400;font-size:12px}.status strong{font-size:22px}
+.feedback{display:none;padding:12px;color:#fff7b0;font-size:16px;line-height:1.25}.feedback.visivel{display:block}
+.parar{padding:15px;font-size:23px;font-weight:900;color:white;text-shadow:2px 2px 3px #000}
+.escada{position:absolute;left:18px;right:18px;bottom:18px;display:flex;flex-direction:column-reverse;gap:3px}
+.deg{display:flex;align-items:center;gap:10px;padding:5px 8px;background:linear-gradient(90deg,#330000,#8d0000,#330000);border:1px solid #ff3333;border-radius:10px;color:#d2b000;font-size:18px;font-weight:900}
+.deg.ativo{background:linear-gradient(90deg,#ff2a2a,#9d0000,#ff2a2a);color:#fff21a;box-shadow:0 0 14px red}
+.bol{width:30px;height:30px;border-radius:50%;border:2px solid #ff5a5a;background:#180000;color:white;display:flex;align-items:center;justify-content:center}
+.premio-final{font-size:46px;color:#ffd400;font-weight:900;margin:18px 0;text-shadow:0 0 18px red}
+@media(max-width:850px){
+ body{overflow:auto}.app{display:block}.dir{display:none}.esq{min-height:100vh;justify-content:flex-start;padding:10px}
+ .logo{font-size:34px;margin-top:6px}.logo span{font-size:17px}.pergunta{font-size:20px;min-height:115px;padding:15px}
+ .alt{font-size:17px;min-height:56px;padding-left:66px}.num{width:40px;height:40px;font-size:21px}
+ .ajuda{height:68px;font-size:12px}.status strong{font-size:19px}.parar{font-size:19px}
+ .titulo{font-size:36px}.txt{font-size:18px}.botao{font-size:22px}
+}
+</style>
+</head>
+<body>
+<section class="tela ativa" id="inicio"><div class="inicio"><div class="caixa bloco"><div class="titulo">SHOW DO MILHÃO CFC</div><div class="txt">Curso de Contabilidade Professor Moreira<br><br>Questões FGV/CFC no estilo programa de auditório.</div><button class="botao bloco" onclick="iniciar()">COMEÇAR</button></div></div></section>
+<section class="tela" id="jogo"><div class="app"><div class="esq"><div class="logo">SHOW <span>do</span> MILHÃO CFC</div><div class="meta" id="meta"></div><div class="pergunta bloco" id="pergunta"></div><div class="alts" id="alternativas"></div><div class="ajudas"><button class="ajuda bloco" id="u" onclick="universitarios()">👥<br>UNIVERSITÁRIOS</button><button class="ajuda bloco" id="e" onclick="eliminarDuas()">50%<br>ELIMINAR 2</button><button class="ajuda bloco" id="p" onclick="pular()">➜<br>PULAR</button></div><div class="status bloco"><div><small>NÍVEL</small><strong id="nivel"></strong></div><div><small>TEMPO</small><strong>--</strong></div><div><small>PRÊMIO</small><strong id="premio"></strong></div></div><div class="feedback bloco" id="feedback"></div><button class="parar bloco" onclick="parar()">PARAR E LEVAR</button></div><div class="dir"><img src="professor_moreira.jpg" class="foto"><div class="sombra"></div><div class="escada" id="escada"></div></div></div></section>
+<section class="tela" id="fim"><div class="fim"><div class="caixa bloco"><div class="titulo" id="tituloFim">FIM</div><div class="txt" id="textoFim"></div><div class="premio-final" id="premioFim"></div><button class="botao bloco" onclick="reiniciar()">JOGAR NOVAMENTE</button></div></div></section>
+<script>
+const bancoQuestoes = __QUESTOES__;
+const premios=[100,200,300,500,1000,2000,4000,8000,16000,32000,64000,125000,250000,500000,1000000];
+let perguntas=[],indice=0,premioGanho=0,premioGarantido=0,q=null,respondeu=false,usouP=false,usouE=false,usouU=false;
+function tela(id){document.querySelectorAll(".tela").forEach(t=>t.classList.remove("ativa"));document.getElementById(id).classList.add("ativa")}
+function emb(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function din(v){return "R$ "+v.toLocaleString("pt-BR")}
+function prep(q){let pares=q.alternativas.map((texto,idx)=>({texto,idx})).filter(p=>p.texto);emb(pares);let n={...q};n.alternativas=pares.map(p=>p.texto);n.correta=pares.findIndex(p=>p.idx===q.correta);if(n.correta<0)n.correta=0;return n}
+function iniciar(){perguntas=emb([...bancoQuestoes]).slice(0,15).map(prep);indice=0;premioGanho=0;premioGarantido=0;usouP=usouE=usouU=false;document.getElementById("p").disabled=false;document.getElementById("e").disabled=false;document.getElementById("u").disabled=false;montarEscada();tela("jogo");mostrar()}
+function montarEscada(){let el=document.getElementById("escada");el.innerHTML="";premios.forEach((p,i)=>{el.innerHTML+=`<div class="deg" id="d${i}"><div class="bol">${i+1}</div><div>${din(p)}</div></div>`})}
+function atualizaEscada(){premios.forEach((p,i)=>{let d=document.getElementById("d"+i);if(d)d.classList.toggle("ativo",i===indice)})}
+function mostrar(){respondeu=false;q=perguntas[indice];document.getElementById("feedback").classList.remove("visivel");document.getElementById("feedback").innerHTML="";document.getElementById("nivel").innerHTML=(indice+1)+" / 15";document.getElementById("premio").innerHTML=din(premios[indice]);document.getElementById("meta").innerHTML=(q.banca||"FGV/CFC")+" • "+(q.assunto||"CFC");document.getElementById("pergunta").innerHTML=q.enunciado;let h="";q.alternativas.forEach((a,i)=>h+=`<button class="alt bloco" id="op${i}" onclick="resp(${i})"><span class="num">${i+1}</span>${a}</button>`);document.getElementById("alternativas").innerHTML=h;atualizaEscada()}
+function feedback(t){let f=document.getElementById("feedback");f.innerHTML=t;f.classList.add("visivel")}
+function resp(i){if(respondeu)return;respondeu=true;let b=document.querySelectorAll(".alt");b.forEach(x=>x.disabled=true);if(i===q.correta){b[i].classList.add("correta");premioGanho=premios[indice];if(indice===4)premioGarantido=premios[4];if(indice===9)premioGarantido=premios[9];feedback("✅ CORRETO!<br>"+(q.comentario||""));setTimeout(()=>{indice++;indice>=15?fim("ganhou"):mostrar()},2600)}else{b[i].classList.add("errada");b[q.correta].classList.add("correta");feedback("❌ ERRADO!<br>"+(q.comentario||""));setTimeout(()=>fim("errou"),3600)}}
+function eliminarDuas(){if(usouE||respondeu)return;usouE=true;document.getElementById("e").disabled=true;let err=[];q.alternativas.forEach((a,i)=>{if(i!==q.correta)err.push(i)});emb(err).slice(0,2).forEach(i=>{let b=document.getElementById("op"+i);if(b){b.disabled=true;b.classList.add("eliminada")}})}
+function pular(){if(usouP)return;usouP=true;document.getElementById("p").disabled=true;indice++;indice>=15?fim("parou"):mostrar()}
+function universitarios(){if(usouU||respondeu)return;usouU=true;document.getElementById("u").disabled=true;feedback("👥 Os universitários acham que a resposta é a alternativa <strong>"+(q.correta+1)+"</strong>.")}
+function parar(){fim("parou")}
+function fim(tipo){tela("fim");if(tipo==="ganhou"){document.getElementById("tituloFim").innerHTML="🏆 VOCÊ GANHOU!";document.getElementById("textoFim").innerHTML="Parabéns! Você concluiu o Show do Milhão CFC.";document.getElementById("premioFim").innerHTML=din(1000000)}if(tipo==="errou"){document.getElementById("tituloFim").innerHTML="❌ QUE PENA!";document.getElementById("textoFim").innerHTML="Você errou. Prêmio garantido:";document.getElementById("premioFim").innerHTML=din(premioGarantido)}if(tipo==="parou"){document.getElementById("tituloFim").innerHTML="🛑 VOCÊ PAROU!";document.getElementById("textoFim").innerHTML="Você decidiu parar e levar:";document.getElementById("premioFim").innerHTML=din(premioGanho)}}
+function reiniciar(){tela("inicio")}
+</script>
+</body>
+</html>'''
+html = html.replace("__QUESTOES__", questions)
+
+html_path = out_dir / "index.html"
+html_path.write_text(html, encoding="utf-8")
+
+zip_path = Path("/mnt/data/show_milhao_cfc_estilo_vermelho.zip")
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+    z.write(html_path, "index.html")
+    if (out_dir / img_name).exists():
+        z.write(out_dir / img_name, img_name)
+
+print(zip_path)
